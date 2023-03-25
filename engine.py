@@ -2,7 +2,7 @@ from math import atan2, sqrt, tan
 from math import degrees as deg
 from math import radians as rad
 
-def py(c1,c2, c3): #Pythagorean Theorem
+def py(c1,c2, c3=0): #Pythagorean Theorem
     return sqrt(c1**2 + c2**2 + c3**2)
 
 def convertV(Vx,Vy,Vz,p,f):
