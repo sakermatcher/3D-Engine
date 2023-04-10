@@ -2,7 +2,7 @@ from engine import convertV
 
 dims= [3,4,3] #cube dims xyz
 pc= [10,10,10] #perspective coordinates
-pa= [2, 45, -45] #perspective angles
+pa= [2, 45, -80] #perspective angles
 s= [1,0,2]
 
 points= []

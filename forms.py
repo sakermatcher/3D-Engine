@@ -1,7 +1,72 @@
 from engine import convertV
-from pygame import surface, BLEND_RGBA_MULT
+from pygame import surface
+
+class line():
+    def __init__(self, pointa, pointb) -> None:
+        #Prevent division by zero
+        if pointa[0] - pointb[0] == 0: #if the line is vertical
+            self.m= 90
+        else:
+            self.m= (pointa[1] - pointb[1])/(pointa[0] - pointb[0])
+
+        self.b= pointa[1] - (self.m*pointa[0])
+        self.minX= min({pointa[0]:'a', pointb[0]:'b'}.items())
+        self.maxX= max({pointa[0]:'a', pointb[0]:'b'}.items())
+        self.minY= min({pointa[1]:'a', pointb[1]:'b'}.items())
+        self.maxY= max({pointa[1]:'a', pointb[1]:'b'}.items())
+        print(pointa, pointb)
 
 
+    def solveForX(self, y):
+        """
+        y= mx + b
+        Given Y, solve for X
+        """
+        x= (y - self.b)/self.m
+        return x
+
+    def solveForY(self, x):
+        """
+        y= mx + b
+        Given X, solve for Y
+        """
+        y= self.m*x + self.b
+        return y
+
+    def toPoints(self, surf, clr) -> surface:
+        """
+        Generate all points in the line
+        """
+        if self.maxX[0] - self.minX[0] > self.maxY[0] - self.minY[0]: #if the line is more horizontal than vertical
+            if self.maxX[0]>1000:
+                self.maxX= (1000, self.maxX[1])
+            if self.minX[0]<0:
+                self.minX= (0, self.minX[1])
+
+            if self.maxX[0] < 0 or self.minX[0] > 1000:
+                return surf
+
+            for x in range(self.minX[0], self.maxX[0]):
+                y= int(self.solveForY(x))
+                if y <= 1000 and y >= 0:
+                    surf.set_at((x,y), clr)
+
+        else: #if the line is more vertical than horizontal
+            if self.maxY[0]>1000:
+                self.maxY= (1000, self.maxY[1])
+            if self.minY[0]<0:
+                self.minY= (0, self.minY[1])
+
+            if self.maxY[0] < 0 or self.minY[0] > 1000:
+                return surf
+
+            for y in range(self.minY[0], self.maxY[0]):
+                x= int(self.solveForX(y))
+                if x <= 1000 and x >= 0:
+                    surf.set_at((x, y), clr)
+
+        return surf
+        
 class polygon():
     def __init__(self, pointa, pointb, pointc):
         """
@@ -9,7 +74,7 @@ class polygon():
         """
         self.points3D= [pointa, pointb, pointc]
 
-    def render(self, pc, pa):
+    def render(self, pc, pa, surf):
         """
         Convert the 3D points to 2D points
         pc= perspective coordinates [x, y, z]
@@ -26,47 +91,19 @@ class polygon():
         minY= min({a[1]:'a', b[1]:'b', c[1]:'c'}.items())
         maxY= max({a[1]:'a', b[1]:'b', c[1]:'c'}.items())
 
-        print([minX[0], minY[0]])
-
-        if minX[0] > 0 and maxX[0] < 1000 and minY[0] > 0 and maxY[0] < 1000: #if the polygon is within the screen
-
-            width= maxX[0] - minX[0]
-            height= maxY[0] - minY[0]
-            
+        print([minX[0], minY[0]], [maxX[0], maxY[0]])
             #Generate each point in a edge between the points
-            A= []
-            B= []
-            C= []
 
-            for i, points in enumerate([[a, b], [b, c], [c, a]]):
-                if points[1][1] < points[0][1]: #if the second point is lower than the first
-                    ordered= [points[1], points[0]]
-                else:
-                    ordered= points
-                for y in range(1, ordered[1][1] - ordered[0][1]): #for each y value between the two points
-                    if i == 0:
-                        C.append([int(ordered[1][0] - ordered[0][0] * y / abs(points[0][1] - points[1][1]) + ordered[0][0]), y])
-                    elif i==1:
-                        A.append([int(ordered[1][0] - ordered[0][0] * y / abs(points[0][1] - points[1][1]) + ordered[0][0]), y])
-                    elif i==2:
-                        B.append([int(ordered[1][0] - ordered[0][0] * y / abs(points[0][1] - points[1][1]) + ordered[0][0]), y])
+        for i in ([[a, b, (255,0,0)], [b, c, (0,255,0)], [c, a, (0,0,255)]]):
+            surf= line(i[0], i[1]).toPoints(surf, i[2])
 
-            #Generate the surface
-            surf= surface.Surface((width, height))
-            surf.fill((0,0,0,0), None, BLEND_RGBA_MULT)
-            for i in A:
-                surf.set_at((i[0], i[1]), (255,0,0))
-            for i in B:
-                surf.set_at((i[0], i[1]), (0,255,0))
-            for i in C:
-                surf.set_at((i[0], i[1]), (0,0,255))
-            for i in [a,b,c]:
+        for i in [a,b,c]:
+            if i[0] <= 1000 and i[0] >= 0 and i[1] <= 1000 and i[1] >= 0:
                 surf.set_at((i[0], i[1]), (255,255,255))
-            return [surf, [minX[0], minY[0]]]  
-        else:
-            return [surface.Surface((0, 0)), [0,0]]
+
+        return surf
         
-def polygonMaker(points, connections):
+def polygonMaker(points, connections, polRules):
     """
     Send a list of points and a list of connections with three points and it will return a list of polygons
     """
@@ -77,54 +114,52 @@ def polygonMaker(points, connections):
 
     return polys
 
-
-
-class cube():
-    connections= [[1,2,0],[1,2,3],[3,6,2],[6,3,7],[4,7,6],[4,7,5],[1,4,5],[4,1,0],[3,5,1],[3,5,7],[7,4,0],[2,4,6]] #connections between points
-
-    def __init__(self, dims, start):
+class form():
+    def __init__(self, points, polygonConnections, polRules, perPolRules= False):
         """
-        dims= [3,4,3] #cube dims xyz\n
-        start= [1,0,2]
+        points= [[x,y,z],[x,y,z]]\n
+        connections= [[point1, point2, point3],[point1, point2, point3]]\n
         """
-        self.dims= dims
-        self.start= start
-        self.generatePolygons()
+        self.points= points
+        if perPolRules:
+            for i in polRules:
+                self.polygons= polygonMaker(self.points, polygonConnections, i)
+        else:
+            self.polygons= polygonMaker(self.points, polygonConnections, polRules)
 
-    def generatePolygons(self):
-        self.points= []
-        for y in [self.start[1], self.dims[1]+self.start[1]]:
-            for z in [self.start[2], self.dims[2]+self.start[2]]:
-                for x in [self.start[0], self.dims[0]+self.start[0]]:
-                    self.points.append([x,y,z])
+    def render(self, pc, pa, surf):
+        for i in self.polygons:
+            surf= i.render(pc, pa, surf)
 
-        self.polygons= polygonMaker(self.points, cube.connections)
-
-class pol():
-    connections= [[1,2,0]] #connections between points
-
-    def __init__(self):
-        self.points= [[0,0,0],[300,300,300],[300,0,300]]
-        self.polygons= polygonMaker(self.points, pol.connections)
-        
-
-class pyramid():
-    def __init__(self, dims, start):
+class preSets():
+    def cube(dims:any, start):
         """
-        dims= [3,4,3] #cube dims xyz\n
-        start= [1,0,2]
+        dims= [x,y,z]\n
+        start= [x,y,z]
         """
-        self.dims= dims
-        self.start= start
 
-    def render(self, pc, pa):
-        """
-        pc= [10,10,10] #perspective coordinates\n
-        pa= [2, 45, -45] #perspective angles\n
-        """
-        self.points= []
-        for z in [self.start[2], self.start[2]+self.dims[2]]:
-            for x in [self.start[0], self.start[0]+self.dims[0]]:
-                self.points.append(convertV(x,self.start[1],z, pc, pa))
-        self.points.append(convertV(self.dims[0]/2+self.start[0], self.dims[1]+self.start[1], self.dims[2]/2+self.start[2], pc, pa))
-        self.vertices={4:[0,1,2,3], 0:[1,2], 3:[1,2]}
+        points= []
+        for y in [start[1], dims[1]+start[1]]:
+            for z in [start[2], dims[2]+start[2]]:
+                for x in [start[0], dims[0]+start[0]]:
+                    points.append([x,y,z])
+
+        connections= [[1,2,0],[1,2,3],[3,6,2],[6,3,7],[4,7,6],[4,7,5],[1,4,5],[4,1,0],[3,5,1],[3,5,7],[7,4,0],[2,4,6]] #connections between points
+
+        return form(points, connections, 'FACE')
+
+    def pyramid(dims:any, start):
+        points= []
+        for z in [start[2], start[2]+dims[2]]:
+            for x in [start[0], start[0]+dims[0]]:
+                points.append([x, start[1], z])
+        points.append([start[0]+dims[0]/2, start[1]+dims[1], start[2]+dims[2]/2])
+
+        connections= [[0,3,1],[0,3,2],[0,1,4],[1,3,4],[3,2,4],[2,0,4]] #connections between points
+
+        return form(points, connections, ['FACE','FACE','CUSTOM','CUSTOM','CUSTOM','CUSTOM'])
+
+    def pol(points:any):
+        connections= [[1,2,0]] #connections between points
+        return form(points, connections, 'FACE')
+            
